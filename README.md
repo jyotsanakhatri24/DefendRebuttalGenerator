@@ -20,6 +20,7 @@
 4.  **Set Environment Variables:**
     Setup your API keys:
     ```bash
+    export MODEL_NAME="gemini-2.0-flash"
     export SEMANTIC_SCHOLAR_API_KEY="your_semantic_scholar_api_key" 
     export GEMINI_API_KEY="your_google_gemini_api_key" 
     ```
