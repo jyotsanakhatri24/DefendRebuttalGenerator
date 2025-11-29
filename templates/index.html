@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DEFEND: RebutAgent</title>
+    <!-- Font Awesome for EasyMDE toolbar icons -->
+    <!-- Toast UI Editor CSS & JS -->
+    <link rel="stylesheet" href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css" />
+    <script src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <h1>DEFEND: Automated Rebuttals for Peer Review</h1>
+    <form id="uploadForm">
+        <label>Paper Title:</label>
+        <input type="text" name="title" required><br><br>
+
+        <label>Upload Paper (PDF):</label>
+        <input type="file" name="pdf" accept="application/pdf" required><br><br>
+
+        <div id="pdfViewerContainer" style="max-width: 800px; margin: 30px auto; display: none;">
+            <h3>Uploaded PDF Preview:</h3>
+            <iframe id="pdfViewer" width="100%" height="500px" style="border: 1px solid #ccc;"></iframe>
+        </div>        
+        
+        <label>Review:</label><br>
+        <textarea name="review" rows="8" required></textarea><br><br>
+
+        <div id="submitWrapper" style="display:inline-block; position: relative;">
+            <button type="submit" id="submitBtn">Generate Rebuttal</button>
+            <button type="button" id="cancelBtn" style="display:none; margin-left:10px; background-color: #f39c12;">Cancel</button>
+        </div>
+        
+    </form>
+    
+   <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
