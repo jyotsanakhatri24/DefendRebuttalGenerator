@@ -36,5 +36,5 @@ python3 app.py
 ## 📋 Requirements
 
 - Semantic Scholar API Key
-- LLM API Key for any provider supported by LiteLLM
+- LLM API Key
 ```
