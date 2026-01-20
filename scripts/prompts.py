@@ -452,6 +452,78 @@ mapping_rag_need_non_deficient = {
 "mitigate_criticism"
 }
 
+rebuttal_generator_segment_wise_rag = '''
+You are assisting in academic peer-review rebuttal writing.
+
+Given the current review segment, paper title, and paper content generate a rebuttal segment specifically for the current review segment.
+
+Paper Title: {PAPER_TITLE}
+Paper content: {PAPER_CONTENT}
+Relevant content from the literatrure: {RELEVANT_LITERATURE_CONTENT}
+Current review segment to be predicted: {SEGMENT}
+
+Please generate a rebuttal segment for the current review segment. If no rebuttal is needed output "No rebuttal needed".
+
+Please take care of the following while generating the rebuttal segment:
+1. A part of the rebuttal is to be generated only for the current review segment to be predicted.
+2. Generate a rebuttal in fluent academic professional tone addressing the concerns and suggestions in the review. It should not contain any offensive terms.
+3. Avoid generic statements. Be precise and point-wise.
+4. The rebuttal segment generated should not use verbose or confusing language.
+5. The rebuttal segment should be complete. Please take care of covering all the required points from the review segment that needs to be answered.
+6. All the responses should be factually and logically correct, detailed, and supported by evidence.
+7. The rebuttal segment generated should be relevant to the points in the review segment.
+8. The rebuttal segment generated should be constructive, either it should foster discussion or offer solutions. It should provide actionable feedback.
+9. The rebuttal segment generated should help the author in getting their scores increased and should help in increasing the chances of acceptance.
+10. The rebuttal segment generated should be consistent and coherent and should not have any contradicting statements.
+11. Consider paper title, content from the paper, relevant content from the literature and general domain knowledge while generating a rebuttal segment for the current review segment.
+12. Be very concise in generating a rebuttal segment.
+13. If the review segment is a summary or just a statement about the paper, the rebuttal segment will be "No rebuttal needed".
+14. For the review segments where there is no need to respond, please provide the output as no rebuttal needed.'''
+
+rebuttal_generator_segment_wise_rag_pipeline = '''
+You are assisting in academic peer-review rebuttal writing.
+
+Given the current review segment, paper title, and paper content, and relevant literature generate a rebuttal segment specifically for the current review segment.
+
+The criteria for deficiency are:
+{DEFICIENT}
+
+Deficient statements can have following error types (All error types with definitions are given below):
+{ERROR_TYPES}
+
+Definition of rebuttal actions:
+{REBUTTAL_ACTIONS_DEFINITIONS}
+
+Paper title: {PAPER_TITLE}
+Paper content: {PAPER_CONTENT}
+Relevant content from the literatrure: {RELEVANT_LITERATURE_CONTENT}
+
+Current review segment to be predicted: {SEGMENT_TO_BE_PREDICTED}
+
+Deficiency status of the current segment: {DEFICIENCY}
+Error type of the current segment: {ERROR_TYPE}
+Rebuttal action for the current segment: {REBUTTAL_ACTION}
+
+Please generate a rebuttal segment for the current review segment. If no rebuttal is needed output "No rebuttal needed".
+
+Please take care of the following while generating the rebuttal sentence:
+1. A part of the rebuttal is to be generated only for the current review segment to be predicted.
+2. Generate a rebuttal in fluent academic professional tone addressing the concerns and suggestions in the review. It should not contain any offensive terms.
+3. Avoid generic statements. Be precise and point-wise if needed.
+4. The rebuttal segment generated should not use verbose or confusing language.
+5. The rebuttal segment should be complete. Please take care of covering all the required points from the review segment that needs to be answered.
+6. All the responses should be factually and logically correct, detailed, and supported by evidence.
+7. The rebuttal segment generated should be relevant to the points in the review segment.
+8. The rebuttal segment generated should be constructive, either it should foster discussion or offer solutions. It should provide actionable feedback.
+9. The rebuttal segment generated should help the author in getting their scores increased and should help in increasing the chances of acceptance.
+10. The rebuttal segment generated should be consistent and coherent and should not have any contradicting statements.
+11. Consider paper title, paper content, criteria for deficiency, definition of error-types, deficiency status, error-types, rebuttal action for the current segment, relevant content from the literature, and general domain knowledge.
+12. Be very concise in generating a rebuttal segment.
+13. If the review segment is a summary or just a statement about the paper, the rebuttal segment will be "No rebuttal needed".
+14. If RELEVANT_LITERATURE_CONTENT is "None", then do not use it.
+15. For the review segments where there is no need to respond, please provide the output as no rebuttal needed.
+'''
+
 deficiency_true_question = "The review statement is not valid. It contains either contain factual errors or lacking constructive feedback or subjective or without evidence (Deficient). Do you agree? Reply in Yes/No"
 deficiency_false_question = "The review statement is valid in interms of factuality and constructive feedback (Non-deficient). Do you agree? Reply in Yes/No." 
 could_not_predict_error_type_statement = "Please provide feedback on what kind of deficiency the review segment has."
@@ -460,3 +532,43 @@ could_not_generate_rebuttal_question = "Please provide the edited rebuttal."
 deficiency_questions = [deficiency_true_question, deficiency_false_question]
 error_type_questions = mapping_error_type_statement
 rebuttal_action_questions = mapping_rebuttal_action_statement
+
+
+segment_scoring_prompt = """
+You are evaluating an academic rebuttal.
+
+Paper title:
+{PAPER_TITLE}
+
+Paper content:
+{PAPER_CONTENT}
+
+Review segment:
+{REVIEW_SEGMENT}
+
+Rebuttal segment:
+{REBUTTAL_SEGMENT}
+
+Retrieved evidence (if any):
+{RAG_CONTEXT}
+
+Score the rebuttal on the following dimensions.
+Each score must be a number between 0 and 1.
+
+1. Factual Correctness:
+Is the rebuttal factually consistent with the paper and evidence?
+
+2. Strength of Refutation:
+Does the review segment require refutation rather than acceptance or clarification?
+The score is 0 if it is required and rebuttal segment is not doing it.
+The score is 1 if it is required and the rebuttal segment is refuting.
+The score is 1 if it is not required and the rebuttal segment is accepting or clarifying.
+The score is 0 if it is not required and the rebuttal segment is refuting.
+
+3. Overall Quality:
+Overall effectiveness, clarity, tone, and completeness of the rebuttal.
+
+Return the answer strictly in the format:
+factual_correctness: <float>|strength_of_refutation: <float>|overall_quality: <float>
+}}
+"""

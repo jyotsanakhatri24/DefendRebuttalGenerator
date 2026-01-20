@@ -56,18 +56,31 @@ document.getElementById("uploadForm").addEventListener("submit", function(e) {
         
         // Render segment-wise rebuttals
         data.segments.forEach((item, index) => {
+            const wrapper = document.createElement("div");
+            wrapper.className = "segment-e";
+            wrapper.id = `segment-e-${index}`;
+
             const div = document.createElement("div");
             div.className = "rebuttal-segment";
             div.id = `segment-${index}`;
+            const ragBlock = item.rag_context ? `
+            <details class="rag-box">
+                <summary>📚 Retrieved Evidence (RAG)</summary>
+                <p><strong>Query:</strong> ${item.rag_query}</p>
+                <pre>${item.rag_context}</pre>
+            </details>
+            ` : "";
             div.innerHTML = `
                 <div class="segment-content" id="segment-content-${index}">
                     <p><strong>Review:</strong> ${item.review}</p>
                     <p><strong>Rebuttal:</strong> ${item.rebuttal}</p>
+                    ${ragBlock}
                 </div>
                 <button onclick="accept(${index})">Accept</button>
                 <button onclick="reject(${index})" data-type="reject" style="background-color:#e74c3c;">Refine</button>
             `;
-            container.appendChild(div);
+            wrapper.appendChild(div);
+            container.appendChild(wrapper);
         });
     
         // Create and inject finalRebuttalContainer dynamically if it doesn't exist
@@ -171,18 +184,20 @@ function accept(index) {
         .then(() => {
             const seg = document.getElementById(`segment-content-${index}`);
             seg.style.opacity = 0.5;
-            seg.classList.add("accepted");
-
+            
             const seg_overall = document.getElementById(`segment-${index}`);
+            seg_overall.classList.add("accepted");
             const existingChatbox = document.getElementById(`chatbox-${index}`);
 
             if (existingChatbox) {
                 const paragraphs = seg.querySelectorAll("p");
                 if (paragraphs) {
                     const rebuttalParagraph = paragraphs[1]
-                    const finalText = existingChatbox.querySelector("p:nth-of-type(2)").textContent.replace(/<\/?p>/g, '').replace(/<br\s*\/?>/gi, '').replace(/^Final Rebuttal:\s*/i, '');
-                    if (rebuttalParagraph) {
-                        rebuttalParagraph.innerHTML = `<strong>Rebuttal:</strong> ${finalText}`;
+                    if (existingChatbox.querySelector("p:nth-of-type(2)")) {
+                        const finalText = existingChatbox.querySelector("p:nth-of-type(2)").textContent.replace(/<\/?p>/g, '').replace(/<br\s*\/?>/gi, '').replace(/^Final Rebuttal:\s*/i, '');
+                        if (rebuttalParagraph) {
+                            rebuttalParagraph.innerHTML = `<strong>Rebuttal:</strong> ${finalText}`;
+                        }
                     }
                 }
                 existingChatbox.remove();
@@ -205,22 +220,33 @@ function accept(index) {
             rejectBtn.style.opacity = 0.4;
             
             // Add Edit Again button
-            if (!seg_overall.querySelector(`#editAgainBtn-${index}`)) {
+            // Add or re-enable Edit Again button
+            // Add or re-enable Edit Again button
+            // Add or re-enable Edit Again button
+            const wrapper = document.getElementById(`segment-e-${index}`);
+            if (!wrapper?.querySelector(`#editAgainBtn-${index}`)) {
                 const editAgainBtn = document.createElement("button");
                 editAgainBtn.id = `editAgainBtn-${index}`;
                 editAgainBtn.innerText = "Edit Again";
                 editAgainBtn.style.backgroundColor = "#f39c12";
-                editAgainBtn.style.opacity = 1;
-                editAgainBtn.style.setProperty("opacity", "1", "important");
                 editAgainBtn.onclick = () => editAgain(index);
+
+                // Force visible & clickable
                 editAgainBtn.disabled = false;
-                seg_overall.appendChild(editAgainBtn);
+                editAgainBtn.style.opacity = 1;
+
+                // ✅ Insert into wrapper, NOT into segment-i
+                const wrapper = document.getElementById(`segment-e-${index}`);
+                wrapper.appendChild(editAgainBtn);
             }
             else {
-                const editAgainBtn = seg_overall.querySelector(`#editAgainBtn-${index}`);
-                editAgainBtn.style.opacity = 1;
+                const editAgainBtn = document.getElementById(`editAgainBtn-${index}`);
+
+                // Re-enable if it already exists
                 editAgainBtn.disabled = false;
+                editAgainBtn.style.opacity = 1;
             }
+
 
             // Track that this segment is accepted
             acceptedSegments[index] = true;
@@ -254,7 +280,7 @@ function checkAllAccepted() {
 }
 
 
-function editAgain(index) {
+function editAgain1(index) {
     // Restore full opacity
     const seg_overall = document.getElementById(`segment-${index}`);
     seg_overall.style.opacity = 1;
@@ -280,10 +306,99 @@ function editAgain(index) {
     reject(index);
 }
 
+function editAgain(index) {
+    // Fully undim the whole segment card
+    const seg_overall = document.getElementById(`segment-${index}`);
+   
+    // Undim the whole rebuttal block
+    seg_overall.style.opacity = 1;
+    seg_overall.classList.remove("accepted");
+    
+    const wrapper = document.getElementById(`segment-e-${index}`);
+    wrapper.style.opacity = 1;
+    wrapper.classList.remove("accepted");
+
+    const seg_content = document.getElementById(`segment-content-${index}`);
+    seg_content.style.opacity = 1;
+    seg_content.classList.remove("accepted");
+
+    wrapper?.querySelector(`#editAgainBtn-${index}`)?.remove();
+
+    // Remove highlight from all segments
+    /*document.querySelectorAll(".rebuttal-segment").forEach(seg => {
+        seg.style.border = "none";
+        seg.style.backgroundColor = "#ffffff";
+    });
+
+    // Highlight this segment
+    seg_overall.style.border = "2px solid #f39c12";
+    seg_overall.style.backgroundColor = "#fff8ee";*/
+    
+    seg_overall.style.opacity = 1;
+    seg_overall.classList.remove("accepted");
+
+    // Remove Accepted labels
+    const acceptedMsg = seg_overall.querySelector(".accepted-msg");
+    if (acceptedMsg) acceptedMsg.remove();
+
+    const acceptedInnerMsg = seg_overall.querySelector(".accepted-inner-msg");
+    if (acceptedInnerMsg) acceptedInnerMsg.remove();
+
+    // Re-enable Reject button
+    const rejectBtn = seg_overall.querySelector(`button[data-type="reject"]`);
+    if (rejectBtn) {
+        rejectBtn.disabled = false;
+        rejectBtn.style.opacity = 1;
+    }
+
+    // Disable Edit Again button itself (until next accept)
+    const editAgainBtn = document.getElementById(`editAgainBtn-${index}`);
+    if (editAgainBtn) {
+        editAgainBtn.style.opacity = 0.5;
+        editAgainBtn.disabled = true;
+    }
+
+    // Mark segment as not accepted anymore
+    acceptedSegments[index] = false;
+
+    // Unlock the chatbox
+    unlockChatbox(index);
+
+    // Re-enable existing chatbox OR recreate it
+    const chatBox = document.getElementById(`chatbox-${index}`);
+    if (chatBox) {
+        const input = document.getElementById(`chatinput-${index}`);
+        const sendBtn = input?.nextSibling;
+
+        if (input) input.disabled = false;
+        if (sendBtn) sendBtn.disabled = false;
+
+        chatBox.style.opacity = 1;
+        chatBox.style.display = "block";
+    } else {
+        // Recreate chatbox if it was removed
+        reject(index);
+    }
+
+    // Update consolidate button state
+    checkAllAccepted();
+
+    // Mark consolidated rebuttal as outdated
+    const consolidateBtn = document.getElementById("consolidateBtn");
+    if (consolidateBtn) {
+        consolidateBtn.disabled = false;
+        consolidateBtn.innerText = "Regenerate Final Rebuttal";
+        consolidateBtn.style.opacity = 1;
+    }
+    document.getElementById(`chatinput-${index}`)?.focus();
+}
+
+
 // Reject the segment and display chatbox under it
 function reject(index) {
     const seg_overall = document.getElementById(`segment-${index}`); 
     const segmentDiv = document.getElementById(`segment-content-${index}`);
+    
 
     // Disable reject button
     const rejectBtn = seg_overall.querySelector(`button[data-type="reject"]`);
@@ -359,8 +474,41 @@ function reject(index) {
 
             if (reply.includes("Final rebuttal:")) {
                 lockChatbox(index)
+                if (data.used_rag) {
+                    // Find the Send button and textarea
+                    const input = document.getElementById(`chatinput-${index}`);
+                    const sendBtn = input?.nextSibling;
+                    const ragDetails = document.createElement("details");
+                    ragDetails.className = "rag-box";
+                    ragDetails.style.marginTop = "8px";
 
-                if (!seg_overall.querySelector(`#editAgainBtn-${index}`)) {
+                    const ragSummary = document.createElement("summary");
+                    ragSummary.innerText = "📚 Retrieved Evidence (RAG)";
+                    ragSummary.style.cursor = "pointer";
+                    ragSummary.style.fontWeight = "600";
+
+                    const ragContent = document.createElement("pre");
+                    ragContent.style.whiteSpace = "pre-wrap";
+                    ragContent.style.maxHeight = "250px";
+                    ragContent.style.overflowY = "auto";
+                    ragContent.style.marginTop = "6px";
+                    ragContent.innerText = data.rag_context || "No evidence retrieved (it was not needed)";
+
+                    ragDetails.appendChild(ragSummary);
+                    ragDetails.appendChild(ragContent);
+
+                    // Insert *right after* the Send button (second line position)
+                    if (sendBtn && sendBtn.parentNode) {
+                        sendBtn.parentNode.insertBefore(
+                            ragDetails,
+                            sendBtn.nextSibling
+                        );
+                    } else {
+                        // Fallback: append to chatBox if structure changes
+                        chatBox.appendChild(ragDetails);
+                    }
+                }
+                /*if (!document.getElementById(`editAgainBtn-${index}`)) {
                     const editAgainBtn = document.createElement("button");
                     editAgainBtn.id = `editAgainBtn-${index}`;
                     editAgainBtn.innerText = "Edit Again";
@@ -368,14 +516,17 @@ function reject(index) {
                     editAgainBtn.style.opacity = 1;
                     editAgainBtn.style.setProperty("opacity", "1", "important");
                     editAgainBtn.onclick = () => editAgain(index);
+                    editAgainBtn.style.marginBottom = "15px";   // 👈 space below button
                     editAgainBtn.disabled = false;
-                    seg_overall.appendChild(editAgainBtn);
+                    
+                    //seg_overall.appendChild(editAgainBtn);
+                    seg_overall.parentNode.insertBefore(editAgainBtn,seg_overall.nextSibling);
                 }
                 else {
                     const editAgainBtn = seg_overall.querySelector(`#editAgainBtn-${index}`);
                     editAgainBtn.style.opacity = 1;
                     editAgainBtn.disabled = false;
-                }
+                }*/
                 
                 chatCompletedFlags[index] = true;
                 finalRebuttals[index] = reply;

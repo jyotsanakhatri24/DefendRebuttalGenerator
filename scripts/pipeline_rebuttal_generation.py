@@ -1,7 +1,7 @@
 from scripts.llm_call import *
 from scripts.prompts import *
 from scripts.error_type_definition import *
-
+from scripts.rag import *
 import pymupdf4llm
 import fitz
 
@@ -14,6 +14,8 @@ generated_rebuttal = "None"
 show_accept_button = False
 error_type_done_once = False
 rebuttal_action_done_once = False
+rag_query = None
+rag_context = None
 
 def error_type_classifier(segment, paper_title, paper_content, review, user_input):
     prompt = error_type_classifier_prompt.format(DEFICIENT=DEFICIENT, ERROR_TYPES_DEFINITIONS=ERROR_TYPES_DEFINITIONS, PAPER_TITLE=paper_title, PAPER_CONTENT=paper_content, REVIEW=review, SEGMENT=segment, USER_INPUT=user_input)
@@ -121,18 +123,45 @@ def rag_needed(deficiency, error_type, rebuttal_action):
         if error_type+"|"+rebuttal_action in mapping_rag_need_deficient:
             return True
     return False
-
-def rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action):
+    
+def rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, rag_query, rag_context, used_rag):
+    rag_context = "None"
+    rag_query = "None"
+    used_rag = False
     if rag_needed(deficiency, error_type, rebuttal_action) == False:
         final_refinement_prompt = rebuttal_generation_prompt.format(DEFICIENCY=deficiency, ERROR_TYPE=error_type, REBUTTAL_ACTION=rebuttal_action, DEFICIENT=DEFICIENT, ERROR_TYPES=ERROR_TYPES_DEFINITIONS, REBUTTAL_ACTIONS_DEFINITIONS=REBUTTAL_ACTIONS_DEFINITIONS, PAPER_TITLE=paper_title, PAPER_CONTENT=paper_content, SEGMENTED_REVIEW=review, SEGMENT_TO_BE_PREDICTED=segment)
         generated_rebuttal = model_calling(final_refinement_prompt, MODEL_NAME)
-        return generated_rebuttal
+        rag_context = "Additional evidence was not needed"
+        return generated_rebuttal, rag_query, rag_context, used_rag
     else:
-        return generate_rebuttal_using_rag(segment, review, paper_title, paper_content)
+        generated_rebuttal, rag_query, rag_context, used_rag = rebuttal_generation_with_rag(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, publication_date)
+        return generated_rebuttal, rag_query, rag_context, used_rag
 
 def consolidate_rebuttal_llm(paper_title, paper_content, review_rebuttal):
     prompt = consolidate_rebuttal_prompt.format(PAPER_TITLE=paper_title, PAPER_CONTENT=paper_content, REVIEW_REBUTTAL=review_rebuttal)
     generated_rebuttal = model_calling(prompt, MODEL_NAME)
     return generated_rebuttal
+
+def rebuttal_generation_with_rag(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, publication_date):
+    rag_context = None
+    rag_query = None
+    used_rag = True
+    # Decide whether RAG is needed
+    rag_query, rag_context = retrieve_relevant_literature(
+                review_segment=segment,
+                review=review,
+                paper_title=paper_title,
+                paper_content=paper_content,
+                publication_date=publication_date
+            )
+    prompt = rebuttal_generator_segment_wise_rag_pipeline(DEFICIENCY=deficiency, ERROR_TYPE=error_type, REBUTTAL_ACTION=rebuttal_action, DEFICIENT=DEFICIENT, ERROR_TYPES=ERROR_TYPES_DEFINITIONS, REBUTTAL_ACTIONS_DEFINITIONS=REBUTTAL_ACTIONS_DEFINITIONS, PAPER_TITLE=paper_title, PAPER_CONTENT=paper_content, SEGMENTED_REVIEW=review, SEGMENT_TO_BE_PREDICTED=segment, RELEVANT_LITERATURE_CONTENT=rag_context)
+    generated_rebuttal = model_calling(prompt, MODEL_NAME)
+
+    return generated_rebuttal, rag_query, rag_context, used_rag
+    '''return {
+        "rebuttal": rebuttal_text,
+        "rag_query": rag_query,
+        "rag_context": rag_context,
+    }'''
 
 

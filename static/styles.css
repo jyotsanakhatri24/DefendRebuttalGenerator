@@ -259,6 +259,63 @@ button:disabled {
     border-radius: 0 0 6px 6px;
 }
 
+.rag-box {
+    margin-top: 10px;
+    background: #f9f9f9;
+    border-left: 4px solid #8e44ad;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 0.9em;
+}
+
+.rag-box summary {
+    cursor: pointer;
+    font-weight: bold;
+    color: #6c3483;
+}
+
+.rag-box pre {
+    white-space: pre-wrap;
+    font-family: Consolas, monospace;
+}
+
+.score-box {
+    margin-top: 10px;
+    background: #eef6ff;
+    border-left: 4px solid #2980b9;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.9em;
+}
+
+.score-box ul {
+    margin: 6px 0 0 16px;
+    padding: 0;
+}
+
+.score-box li {
+    margin-bottom: 4px;
+}
+
+/* Keep Edit Again button visible & clickable even when segment is dimmed */
+.rebuttal-segment.accepted #editAgainBtn {
+    position: relative;
+    z-index: 10;
+    opacity: 1 !important;
+    pointer-events: auto;
+}
+
+/* Highlight the active segment being edited */
+.rebuttal-segment.active-edit {
+    border: 2px solid #f39c12;
+    background-color: #fff8ee;
+    box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.15);
+}
+
+.segment-e {
+    margin-bottom: 20px;   /* space before next segment */
+}
+
 
 
 

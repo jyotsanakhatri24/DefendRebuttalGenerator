@@ -41,16 +41,12 @@ def what_question_is_asked(chat_history):
 #Returns based on whether the statement is deficient or not after user feedback
 def check_deficient(deficiency_question, answer):
     if deficiency_question == deficiency_false_question and answer == "no":
-        print("a")
         return "yes"
     elif deficiency_question == deficiency_false_question and answer == "yes":
-        print("b")
         return "no"
     elif deficiency_question == deficiency_true_question and answer == "no":
-        print("c")
         return "no"
     elif deficiency_question == deficiency_true_question and answer == "yes":
-        print("d")
         return "yes"
     else:
         return "None"         
@@ -62,25 +58,26 @@ def append_to_chat_history(chat_history, response, user_input):
     chat_history.append({"role": "assistant", "content": response})
     return chat_history
 
-def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history, user_input, deficiency, error_type, rebuttal_action, generated_rebuttal, error_type_done_once, rebuttal_action_done_once):
-    print(chat_history)
-    print(user_input)
+def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history, user_input, deficiency, error_type, rebuttal_action, generated_rebuttal, error_type_done_once, rebuttal_action_done_once, rag_query, rag_context, used_rag):
     current_length_chat_history = len(chat_history)
     response = ""
-    #The first question is to asked about deficiency
+    #Stage1: Ask about deficiency (first assistant turn)
     if current_length_chat_history == 0:
-        deficiency = deficiency_prediction(segment, paper_title, paper_content, review)
+        deficiency = deficiency_prediction_main(segment, paper_title, paper_content, review)
         if deficiency == "yes":
             response = deficiency_true_question
         else:
             response = deficiency_false_question
         #Append the assistant
         chat_history.append({"role": "assistant", "content": response})
-    #the reply for deficiency and error-type question or rebuttal_action question
+    
+    # Stage 2: User answered deficiency question
     elif current_length_chat_history == 1:
-        if user_input.strip().lower() == "yes" or user_input.strip().lower() == "no":
-            if check_deficient(chat_history[current_length_chat_history-1]["content"], user_input.lower()) == "yes":
-                #error_types = error_type_prediction(segment, paper_title, paper_content, review)
+        user_answer = user_input.strip().lower()
+        if user_answer in ["yes", "no"]:
+            is_deficient = check_deficient(chat_history[current_length_chat_history-1]["content"], user_input.lower())
+            #if deficient
+            if is_deficient == "yes":
                 error_type = error_type_prediction(segment, paper_title, paper_content, review, deficiency)
                 if error_type.strip() in mapping_error_type_statement:
                     response = mapping_error_type_statement[error_type.strip()]
@@ -90,10 +87,8 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
             #Non-deficient
             else:
                 chat_history.append({"role": "user", "content": "no"})
-                #Append the user reply
                 chat_history.append({"role": "assistant", "content": "None"})
                 #Append the assistant for next question
-                #chat_history.append({"role": "user", "content": "None"})
                 rebuttal_action = rebuttal_action_prediction(segment, paper_title, paper_content, review, deficiency, error_type)
                 if rebuttal_action.strip() in mapping_rebuttal_action_statement:
                     response = mapping_rebuttal_action_statement[rebuttal_action.strip()]
@@ -103,9 +98,12 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
                 chat_history = append_to_chat_history(chat_history, response, user_input)
         else:
             response = "Please reply in yes/no only."
-    #the reply for error-type and question for rebuttal action
+    
+    # STAGE 3: User feedback on error type → move to rebuttal action
     elif current_length_chat_history == 3:
-        if (user_input.strip().lower() == "yes" or user_input.strip().lower() == "no"):
+        user_answer = user_input.strip().lower()
+        if user_answer in ["yes", "no"]:
+            #User accepted the predicted error type
             if user_input.lower() == "yes":
                 rebuttal_action = rebuttal_action_prediction(segment, paper_title, paper_content, review, deficiency, error_type)
                 rebuttal_action = "_".join(rebuttal_action.strip().lower().split(" "))
@@ -114,9 +112,11 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
                 else:
                     response = could_not_predict_rebuttal_action_statement
                 chat_history = append_to_chat_history(chat_history, response, user_input)
+            # User rejected predicted error type (first time)
             elif user_input.lower() == "no" and error_type_done_once == False: 
                 response = could_not_predict_error_type_statement
                 chat_history = append_to_chat_history(chat_history, response, user_input)
+            # User rejected again → skip error type
             else:
                 #Remove the asking of the could not predict errortype and add error type as None
                 chat_history = chat_history[0:len(chat_history)-1]
@@ -128,8 +128,8 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
                     response = could_not_predict_rebuttal_action_statement
                 
                 chat_history = append_to_chat_history(chat_history, response, user_input)
+        # ---- Free-text feedback branch for error type ----
         elif chat_history[len(chat_history)-1]["content"] == could_not_predict_error_type_statement:
-            print(error_type_done_once)
             if error_type_done_once == False:
                 error_type = error_type_classifier(segment, paper_title, paper_content, review, user_input)
                 if error_type in mapping_error_type_statement:
@@ -150,6 +150,7 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
                     chat_history = append_to_chat_history(chat_history, response, user_input)
             #This wont happen
             else:
+                # Fallback: skip error type and move on
                 chat_history = chat_history[0:len(chat_history)-1]
                 chat_history.append({"role": "assistant", "content": "None"})
                 rebuttal_action = rebuttal_action_prediction(segment, paper_title, paper_content, review, deficiency, error_type)
@@ -162,21 +163,24 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
         else:
             response = "Please reply in yes/no only."
     #the reply for rebuttal action and generated rebuttal
+    # Stage 4: User feedback on rebuttal action → generate rebuttal
     elif current_length_chat_history == 5:
-        if (user_input.strip().lower() == "yes" or user_input.strip().lower() == "no"):
+        user_answer = user_input.strip().lower()
+        if user_answer in ["yes", "no"]:
             if user_input.lower() == "yes":
-                generated_rebuttal = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action)
+                generated_rebuttal, rag_query, rag_context, used_rag = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, rag_query, rag_context, used_rag)
                 response = generated_rebuttal + "\nDo you agree with the generated rebuttal?"
-                chat_history = append_to_chat_history(chat_history, generated_rebuttal, user_input)
+                chat_history = append_to_chat_history(chat_history, response, user_input)
             elif user_input.lower() == "no" and rebuttal_action_done_once == False:
-                generated_rebuttal = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action)
-                response = generated_rebuttal + "\nDo you agree with the generated rebuttal?"
-                chat_history = append_to_chat_history(chat_history, generated_rebuttal, user_input)
+                #generated_rebuttal, rag_query, rag_context, used_rag = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, rag_query, rag_context, used_rag)
+                response = could_not_predict_rebuttal_action_statement #generated_rebuttal + "\nDo you agree with the generated rebuttal?"
+                chat_history = chat_history[0:len(chat_history)-2]
+                chat_history = append_to_chat_history(chat_history, response, user_input)
             else:
-                generated_rebuttal = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action)
+                generated_rebuttal, rag_query, rag_context, used_rag = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, rag_query, rag_context, used_rag )
                 response = generated_rebuttal + "\nDo you agree with the generated rebuttal?"
-                chat_history = append_to_chat_history(chat_history, generated_rebuttal, user_input)
-        elif user_input.lower() == could_not_predict_rebuttal_action_statement or chat_history[len(chat_history)-1]["content"] == could_not_predict_rebuttal_action_statement:
+                chat_history = append_to_chat_history(chat_history, response, user_input)
+        elif chat_history[len(chat_history)-1]["content"] == could_not_predict_rebuttal_action_statement:
             if rebuttal_action_done_once == False:
                 rebuttal_action = rebuttal_action_classifier(segment, paper_title, paper_content, review, user_input, deficiency, error_type)
                 if rebuttal_action.strip() in mapping_rebuttal_action_statement:
@@ -185,13 +189,13 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
                     chat_history = append_to_chat_history(chat_history, response, user_input)
                     rebuttal_action_done_once = True
                 else:
-                    generated_rebuttal = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action)
+                    generated_rebuttal, rag_query, rag_context, used_rag = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, )
                     response = generated_rebuttal + "\nDo you agree with the generated rebuttal?"
-                    chat_history = append_to_chat_history(chat_history, generated_rebuttal, user_input)
+                    chat_history = append_to_chat_history(chat_history, response, user_input)
             else:
-                generated_rebuttal = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action)
+                generated_rebuttal, rag_query, rag_context, used_rag = rebuttal_generation_task(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, )
                 response = generated_rebuttal + "\nDo you agree with the generated rebuttal?"
-                chat_history = append_to_chat_history(chat_history, generated_rebuttal, user_input)
+                chat_history = append_to_chat_history(chat_history, response, user_input)
         else:
             response = "Please reply in yes/no only."
     #the reply for generated rebuttal and question for editing the rebuttal
@@ -211,5 +215,5 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
         response = "Final rebuttal:\n" + user_input
     else:
         response = "Please reply in yes/no only."
-    return response, chat_history, paper_title, paper_content, segment, deficiency, error_type, rebuttal_action, generated_rebuttal, error_type_done_once, rebuttal_action_done_once 
+    return response, rag_query, rag_context, used_rag, chat_history, paper_title, paper_content, segment, deficiency, error_type, rebuttal_action, generated_rebuttal, error_type_done_once, rebuttal_action_done_once 
 
