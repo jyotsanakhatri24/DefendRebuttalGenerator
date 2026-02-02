@@ -189,19 +189,23 @@ function accept(index) {
             seg_overall.classList.add("accepted");
             const existingChatbox = document.getElementById(`chatbox-${index}`);
 
-            if (existingChatbox) {
+            if (existingChatbox && finalRebuttals[index]) {
+
                 const paragraphs = seg.querySelectorAll("p");
-                if (paragraphs) {
-                    const rebuttalParagraph = paragraphs[1]
-                    if (existingChatbox.querySelector("p:nth-of-type(2)")) {
-                        const finalText = existingChatbox.querySelector("p:nth-of-type(2)").textContent.replace(/<\/?p>/g, '').replace(/<br\s*\/?>/gi, '').replace(/^Final Rebuttal:\s*/i, '');
-                        if (rebuttalParagraph) {
-                            rebuttalParagraph.innerHTML = `<strong>Rebuttal:</strong> ${finalText}`;
-                        }
-                    }
-                }
+                const rebuttalParagraph = paragraphs[1];
+
+                // strip the "Final rebuttal:" prefix
+                const finalText = finalRebuttals[index]
+                    .replace(/^Assistant:\s*/i, "")
+                    .replace(/^Final rebuttal:\s*/i, "")
+                    .trim();
+
+                rebuttalParagraph.innerHTML =
+                    `<strong>Rebuttal:</strong> ${finalText.replace(/\n/g, "<br>")}`;
+
                 existingChatbox.remove();
             }
+
             // Add Accepted label
             const acceptedInnerMsg = seg_overall.querySelector(".accepted-inner-msg");
             if (acceptedInnerMsg) acceptedInnerMsg.remove();

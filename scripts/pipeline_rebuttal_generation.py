@@ -134,7 +134,7 @@ def rebuttal_generation_task(segment, paper_title, paper_content, review, defici
         rag_context = "Additional evidence was not needed"
         return generated_rebuttal, rag_query, rag_context, used_rag
     else:
-        generated_rebuttal, rag_query, rag_context, used_rag = rebuttal_generation_with_rag(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, publication_date)
+        generated_rebuttal, rag_query, rag_context, used_rag = rebuttal_generation_with_rag(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action)
         return generated_rebuttal, rag_query, rag_context, used_rag
 
 def consolidate_rebuttal_llm(paper_title, paper_content, review_rebuttal):
@@ -142,10 +142,11 @@ def consolidate_rebuttal_llm(paper_title, paper_content, review_rebuttal):
     generated_rebuttal = model_calling(prompt, MODEL_NAME)
     return generated_rebuttal
 
-def rebuttal_generation_with_rag(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action, publication_date):
+def rebuttal_generation_with_rag(segment, paper_title, paper_content, review, deficiency, error_type, rebuttal_action):
     rag_context = None
     rag_query = None
     used_rag = True
+    publication_date = date.today()
     # Decide whether RAG is needed
     rag_query, rag_context = retrieve_relevant_literature(
                 review_segment=segment,
@@ -154,7 +155,7 @@ def rebuttal_generation_with_rag(segment, paper_title, paper_content, review, de
                 paper_content=paper_content,
                 publication_date=publication_date
             )
-    prompt = rebuttal_generator_segment_wise_rag_pipeline(DEFICIENCY=deficiency, ERROR_TYPE=error_type, REBUTTAL_ACTION=rebuttal_action, DEFICIENT=DEFICIENT, ERROR_TYPES=ERROR_TYPES_DEFINITIONS, REBUTTAL_ACTIONS_DEFINITIONS=REBUTTAL_ACTIONS_DEFINITIONS, PAPER_TITLE=paper_title, PAPER_CONTENT=paper_content, SEGMENTED_REVIEW=review, SEGMENT_TO_BE_PREDICTED=segment, RELEVANT_LITERATURE_CONTENT=rag_context)
+    prompt = rebuttal_generator_segment_wise_rag_pipeline.format(DEFICIENCY=deficiency, ERROR_TYPE=error_type, REBUTTAL_ACTION=rebuttal_action, DEFICIENT=DEFICIENT, ERROR_TYPES=ERROR_TYPES_DEFINITIONS, REBUTTAL_ACTIONS_DEFINITIONS=REBUTTAL_ACTIONS_DEFINITIONS, PAPER_TITLE=paper_title, PAPER_CONTENT=paper_content, SEGMENTED_REVIEW=review, SEGMENT_TO_BE_PREDICTED=segment, RELEVANT_LITERATURE_CONTENT=rag_context)
     generated_rebuttal = model_calling(prompt, MODEL_NAME)
 
     return generated_rebuttal, rag_query, rag_context, used_rag
