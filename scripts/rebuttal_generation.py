@@ -70,7 +70,7 @@ def pipeline(segment, rebuttal, paper_title, paper_content, review, chat_history
             response = deficiency_false_question
         #Append the assistant
         chat_history.append({"role": "assistant", "content": response})
-    
+        print(chat_history)
     # Stage 2: User answered deficiency question
     elif current_length_chat_history == 1:
         user_answer = user_input.strip().lower()
